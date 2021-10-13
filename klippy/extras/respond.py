@@ -23,12 +23,6 @@ class HostResponder:
                                desc=self.cmd_RESPOND_help)
     def cmd_M118(self, gcmd):
         msg = gcmd.get_commandline()
-        umsg = msg.upper()
-        if not umsg.startswith('M118'):
-            # Parse out additional info if M118 recd during a print
-            start = umsg.find('M118')
-            end = msg.rfind('*')
-            msg = msg[start:end]
         if len(msg) > 5:
             msg = msg[5:]
         else:
