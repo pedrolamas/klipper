@@ -12,9 +12,11 @@ Coord = collections.namedtuple('Coord', ('x', 'y', 'z', 'e'))
 
 class GCodeCommand:
     error = CommandError
+    commandline_r = re.compile(r'^\s*N[0-9]+\s+(.*)\*[0-9]+')
     def __init__(self, gcode, command, commandline, params, need_ack):
         self._command = command
-        self._commandline = commandline
+        self._rawcommandline = commandline
+        self._commandline = self.commandline_r.sub(r'\1', commandline).strip()
         self._params = params
         self._need_ack = need_ack
         # Method wrappers
@@ -22,6 +24,8 @@ class GCodeCommand:
         self.respond_raw = gcode.respond_raw
     def get_command(self):
         return self._command
+    def get_rawcommandline(self):
+        return self._rawcommandline
     def get_commandline(self):
         return self._commandline
     def get_command_parameters(self):
@@ -223,8 +227,7 @@ class GCodeDispatch:
         self.respond_info("Klipper state: %s" % (state,), log=False)
     # Parameter parsing helpers
     extended_r = re.compile(
-        r'^\s*(?:N[0-9]+\s*)?'
-        r'(?P<cmd>[a-zA-Z_][a-zA-Z0-9_]+)(?:\s+|$)'
+        r'^(?P<cmd>[a-zA-Z_][a-zA-Z0-9_]+)(?:\s+|$)'
         r'(?P<args>[^#*;]*?)'
         r'\s*(?:[#*;].*)?$')
     def _get_extended_params(self, gcmd):
