@@ -12,7 +12,7 @@ Coord = collections.namedtuple('Coord', ('x', 'y', 'z', 'e'))
 
 class GCodeCommand:
     error = CommandError
-    commandline_r = re.compile(r'^\s*N[0-9]+\s+(.*)\*[0-9]+')
+    commandline_r = re.compile(r'^\s*N[0-9]+\s+(.*)\*[0-9]+.*$')
     def __init__(self, gcode, command, commandline, params, need_ack):
         self._command = command
         self._rawcommandline = commandline
