@@ -404,6 +404,9 @@ class ProbePointsHelper:
         return False
     def start_probe(self, gcmd):
         manual_probe.verify_no_manual_probe(self.printer)
+        use_xy_offsets = gcmd.get_int('USE_XY_OFFSETS', None)
+        if use_xy_offsets is not None:
+            self.use_xy_offsets(bool(use_xy_offsets))
         # Lookup objects
         probe = self.printer.lookup_object('probe', None)
         method = gcmd.get('METHOD', 'automatic').lower()
