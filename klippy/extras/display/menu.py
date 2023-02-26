@@ -702,6 +702,7 @@ class MenuManager:
         self.cols, self.rows = self.display.get_dimensions()
         self.timeout = config.getint('menu_timeout', 0)
         self.timer = 0
+        self.status_raw_config = {}
         # reverse container navigation
         self._reverse_navigation = config.getboolean(
             'menu_reverse_navigation', False)
@@ -767,7 +768,8 @@ class MenuManager:
             'timeout': self.timeout,
             'running': self.running,
             'rows': self.rows,
-            'cols': self.cols
+            'cols': self.cols,
+            'menu_config': self.status_raw_config
         }
 
     def _action_back(self, force=False, update=True):
@@ -1011,6 +1013,9 @@ class MenuManager:
 
     def load_menuitems(self, config):
         for cfg in config.get_prefix_sections('menu '):
+            self.status_raw_config[cfg.get_name()] = section_status = {}
+            for option in cfg.get_prefix_options(''):
+                section_status[option] = cfg.get(option, note_valid=False)
             type = cfg.get('type')
             if type not in menu_items:
                 raise error("Choice '%s' for option '%s'"
