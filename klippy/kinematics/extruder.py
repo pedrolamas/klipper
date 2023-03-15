@@ -143,23 +143,16 @@ class PrinterExtruder:
         self.heater = pheaters.setup_heater(config, gcode_id)
         # Setup kinematic checks
         self.nozzle_diameter = config.getfloat('nozzle_diameter', above=0.)
-        filament_diameter = config.getfloat(
+        self.filament_diameter = config.getfloat(
             'filament_diameter', minval=self.nozzle_diameter)
-        self.filament_area = math.pi * (filament_diameter * .5)**2
-        def_max_cross_section = 4. * self.nozzle_diameter**2
-        def_max_extrude_ratio = def_max_cross_section / self.filament_area
-        max_cross_section = config.getfloat(
-            'max_extrude_cross_section', def_max_cross_section, above=0.)
-        self.max_extrude_ratio = max_cross_section / self.filament_area
-        logging.info("Extruder max_extrude_ratio=%.6f", self.max_extrude_ratio)
+        self.config_max_cross_section = config.getfloat(
+            'max_extrude_cross_section', None, above=0., note_valid=True)
+        self.config_max_e_velocity = self.max_e_velocity = config.getfloat(
+            'max_extrude_only_velocity', None, above=0., note_valid=True)
+        self.config_max_e_accel = self.max_e_accel = config.getfloat(
+            'max_extrude_only_accel', None, above=0., note_valid=True)
+        self._update_kinematic_checks()
         toolhead = self.printer.lookup_object('toolhead')
-        max_velocity, max_accel = toolhead.get_max_velocity()
-        self.max_e_velocity = config.getfloat(
-            'max_extrude_only_velocity', max_velocity * def_max_extrude_ratio
-            , above=0.)
-        self.max_e_accel = config.getfloat(
-            'max_extrude_only_accel', max_accel * def_max_extrude_ratio
-            , above=0.)
         self.max_e_dist = config.getfloat(
             'max_extrude_only_distance', 50., minval=0.)
         self.instant_corner_v = config.getfloat(
@@ -185,11 +178,37 @@ class PrinterExtruder:
         gcode.register_mux_command("ACTIVATE_EXTRUDER", "EXTRUDER",
                                    self.name, self.cmd_ACTIVATE_EXTRUDER,
                                    desc=self.cmd_ACTIVATE_EXTRUDER_help)
+        gcode.register_mux_command("SET_EXTRUDER_NOZZLE_DIAMETER", "EXTRUDER",
+                                   self.name, self.cmd_SET_E_NOZZLE_DIAMETER,
+                                   desc=self.cmd_SET_E_NOZZLE_DIAMETER_help)
+        gcode.register_mux_command("SET_EXTRUDER_FILAMENT_DIAMETER", "EXTRUDER",
+                                   self.name, self.cmd_SET_E_FILAMENT_DIAMETER,
+                                   desc=self.cmd_SET_E_FILAMENT_DIAMETER_help)
+    def _update_kinematic_checks(self):
+        self.filament_area = math.pi * (self.filament_diameter * .5)**2
+        def_max_cross_section = 4. * self.nozzle_diameter**2
+        def_max_extrude_ratio = def_max_cross_section / self.filament_area
+        if self.config_max_cross_section is not None:
+            self.max_extrude_ratio = self.config_max_cross_section / self.filament_area
+        else:
+            self.max_extrude_ratio = def_max_cross_section / self.filament_area
+        logging.info("Extruder max_extrude_ratio=%.6f", self.max_extrude_ratio)
+        toolhead = self.printer.lookup_object('toolhead')
+        max_velocity, max_accel = toolhead.get_max_velocity()
+        if self.config_max_e_velocity is None:
+            self.max_e_velocity = max_velocity * def_max_extrude_ratio
+        if self.config_max_e_accel is None:
+            self.max_e_accel = max_accel * def_max_extrude_ratio
     def update_move_time(self, flush_time, clear_history_time):
         self.trapq_finalize_moves(self.trapq, flush_time, clear_history_time)
     def get_status(self, eventtime):
         sts = self.heater.get_status(eventtime)
         sts['can_extrude'] = self.heater.can_extrude
+        sts['nozzle_diameter'] = self.nozzle_diameter
+        sts['filament_diameter'] = self.filament_diameter
+        sts['max_extrude_ratio'] = self.max_extrude_ratio
+        sts['max_e_velocity'] = self.max_e_velocity
+        sts['max_e_accel'] = self.max_e_accel
         if self.extruder_stepper is not None:
             sts.update(self.extruder_stepper.get_status(eventtime))
         return sts
@@ -282,6 +301,14 @@ class PrinterExtruder:
         toolhead.flush_step_generation()
         toolhead.set_extruder(self, self.last_position)
         self.printer.send_event("extruder:activate_extruder")
+    cmd_SET_E_NOZZLE_DIAMETER_help = "Set extruder nozzle diameter"
+    def cmd_SET_E_NOZZLE_DIAMETER(self, gcmd):
+        self.nozzle_diameter = gcmd.get_float('NOZZLE_DIAMETER', above=0.)
+        self._update_kinematic_checks()
+    cmd_SET_E_FILAMENT_DIAMETER_help = "Set extruder filament diameter"
+    def cmd_SET_E_FILAMENT_DIAMETER(self, gcmd):
+        self.filament_diameter = gcmd.get_float('FILAMENT_DIAMETER', minval=self.nozzle_diameter)
+        self._update_kinematic_checks()
 
 # Dummy extruder class used when a printer has no extruder at all
 class DummyExtruder:
